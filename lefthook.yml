@@ -1,0 +1,9 @@
+pre-commit:
+  jobs:
+    - name: check:commit
+      run: npm run check:commit
+
+commit-msg:
+  commands:
+    commitlint:
+      run: npx --no -- commitlint --edit "{1}"

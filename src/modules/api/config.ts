@@ -1,0 +1,3 @@
+export const DEFAULT_API_VERSION = '5.199';
+export const DEFAULT_API_MIN_INTERVAL_MS = 500;
+export const DEFAULT_API_TIMEOUT_MS = 30_000;

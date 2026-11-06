@@ -1,0 +1,71 @@
+{
+  "name": "@protoapps/mini-vk-bridge",
+  "version": "0.1.0",
+  "description": "Mini VK Bridge client",
+  "license": "MIT",
+  "author": "Anton V.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": false,
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "^22.22.2 || ^24.15.0 || >=26.0.0",
+      "onFail": "error"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "check:commit": "npm run test:unit && npm run lint && npm run typecheck && npm run build",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix --max-warnings 0",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm --dry-run=false run check:commit",
+    "test": "npm run test:unit",
+    "test:coverage": "vitest run --coverage",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.build.json --noEmit"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "vk",
+    "vk-bridge",
+    "mini-apps",
+    "typescript"
+  ],
+  "dependencies": {
+    "@vkontakte/vk-bridge": "^3.0.2"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "@commitlint/types": "^21.2.3",
+    "@protoapps/browser-targets": "^0.1.0",
+    "@protoapps/eslint-config": "^0.3.2",
+    "@types/node": "^24.19.2",
+    "@vitest/coverage-v8": "^5.1.0",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "jiti": "^2.7.0",
+    "lefthook": "^2.2.2",
+    "publint": "^0.3.25",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  },
+  "allowScripts": {
+    "lefthook@2.2.2": true,
+    "unrs-resolver": false
+  }
+}
