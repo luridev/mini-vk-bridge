@@ -55,7 +55,7 @@
     "@commitlint/config-conventional": "^21.2.4",
     "@commitlint/types": "^21.2.3",
     "@protoapps/browser-targets": "^0.1.0",
-    "@protoapps/eslint-config": "^0.3.2",
+    "@protoapps/eslint-config": "^0.3.3",
     "@types/node": "^24.19.2",
     "@vitest/coverage-v8": "^5.1.0",
     "bumpp": "^12.3.0",
