@@ -5,7 +5,10 @@ import { globalIgnores } from 'eslint/config';
 import globals from 'globals';
 
 export default createProtoConfig(
-  { tsconfigRootDir: dirname(fileURLToPath(import.meta.url)) },
+  {
+    tsconfigRootDir: dirname(fileURLToPath(import.meta.url)),
+    vitest: { files: ['src/**/*.test.ts'] },
+  },
   globalIgnores(['dist/**', '.local/**', 'coverage/**']),
   {
     name: 'mini-vk-bridge/browser',

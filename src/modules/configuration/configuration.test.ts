@@ -14,13 +14,13 @@ function createClient(options?: MiniBridgeOptions): MiniBridge {
   return client;
 }
 
-afterEach(() => {
-  for (const client of clients.splice(0)) {
-    client.dispose();
-  }
-});
-
 describe('configuration', () => {
+  afterEach(() => {
+    for (const client of clients.splice(0)) {
+      client.dispose();
+    }
+  });
+
   it('starts without a snapshot and notifies subscribers when the initial query resolves', async () => {
     reply('VKWebAppGetConfig', lightConfig);
     const client = createClient();
@@ -29,7 +29,7 @@ describe('configuration', () => {
     client.config.subscribe(listener);
     expect(listener).not.toHaveBeenCalled();
     const snapshot = await client.config.get();
-    expect(snapshot).toEqual(lightConfig);
+    expect(snapshot).toStrictEqual(lightConfig);
     expect(client.config.snapshot()).toBe(snapshot);
     expect(listener).toHaveBeenCalledExactlyOnceWith(snapshot);
     expect(sdk.send).toHaveBeenCalledExactlyOnceWith('VKWebAppGetConfig', undefined);
@@ -47,7 +47,7 @@ describe('configuration', () => {
     emit({ detail: { type: 'VKWebAppUpdateConfig', data: darkConfig } });
     expect(immediate).toHaveBeenLastCalledWith(darkConfig);
     expect(changesOnly).toHaveBeenCalledExactlyOnceWith(darkConfig);
-    expect(client.config.snapshot()).toEqual(darkConfig);
+    expect(client.config.snapshot()).toStrictEqual(darkConfig);
   });
 
   it('coalesces concurrent reads and permits a new explicit query after settlement', async () => {
@@ -56,12 +56,12 @@ describe('configuration', () => {
     const client = createClient();
     const first = client.config.get();
     const second = client.config.get();
-    expect(sdk.send).toHaveBeenCalledTimes(1);
+    expect(sdk.send).toHaveBeenCalledOnce();
     request.resolve(lightConfig);
     const [initial, concurrent] = await Promise.all([first, second]);
     expect(concurrent).toBe(initial);
     reply('VKWebAppGetConfig', darkConfig);
-    await expect(client.config.get()).resolves.toEqual(darkConfig);
+    await expect(client.config.get()).resolves.toStrictEqual(darkConfig);
     expect(sdk.send).toHaveBeenCalledTimes(2);
   });
 
@@ -74,8 +74,8 @@ describe('configuration', () => {
     const initial = client.config.get();
     emit({ detail: { type: 'VKWebAppUpdateConfig', data: darkConfig } });
     request.resolve(lightConfig);
-    await expect(initial).resolves.toEqual(darkConfig);
-    expect(client.config.snapshot()).toEqual(darkConfig);
+    await expect(initial).resolves.toStrictEqual(darkConfig);
+    expect(client.config.snapshot()).toStrictEqual(darkConfig);
     expect(listener).toHaveBeenCalledExactlyOnceWith(darkConfig);
   });
 
@@ -84,26 +84,26 @@ describe('configuration', () => {
     onSend('VKWebAppGetConfig', () => request.promise);
     const client = createClient();
     const error = { failure: 'GetConfig' };
-    const failed = expect(client.config.get()).rejects.toBe(error);
+    const failed = client.config.get();
     emit({ detail: { type: 'VKWebAppUpdateConfig', data: darkConfig } });
     request.reject(error);
-    await failed;
-    expect(client.config.snapshot()).toEqual(darkConfig);
+    await expect(failed).rejects.toBe(error);
+    expect(client.config.snapshot()).toStrictEqual(darkConfig);
     reply('VKWebAppGetConfig', lightConfig);
-    await expect(client.config.get()).resolves.toEqual(lightConfig);
-    expect(client.config.snapshot()).toEqual(lightConfig);
+    await expect(client.config.get()).resolves.toStrictEqual(lightConfig);
+    expect(client.config.snapshot()).toStrictEqual(lightConfig);
   });
 
   it('does not cache failure of the first query', async () => {
     const request = deferred<unknown>();
     onSend('VKWebAppGetConfig', () => request.promise);
     const client = createClient();
-    const failed = expect(client.config.get()).rejects.toBe('unavailable');
+    const failed = client.config.get();
     request.reject('unavailable');
-    await failed;
+    await expect(failed).rejects.toBe('unavailable');
     expect(client.config.snapshot()).toBeUndefined();
     reply('VKWebAppGetConfig', lightConfig);
-    await expect(client.config.get()).resolves.toEqual(lightConfig);
+    await expect(client.config.get()).resolves.toStrictEqual(lightConfig);
   });
 
   it('uses independent subscriptions and idempotent unsubscribe for identical callbacks', () => {
@@ -114,10 +114,10 @@ describe('configuration', () => {
     stopFirst();
     stopFirst();
     emit({ detail: { type: 'VKWebAppUpdateConfig', data: lightConfig } });
-    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledOnce();
     stopSecond();
     emit({ detail: { type: 'VKWebAppUpdateConfig', data: darkConfig } });
-    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledOnce();
   });
 
   it('skips a subscription removed earlier during the same config delivery', () => {
@@ -165,7 +165,7 @@ describe('configuration', () => {
     expect(reporter).toHaveBeenCalledTimes(2);
     expect(next).toHaveBeenCalledExactlyOnceWith(darkConfig);
     reply('VKWebAppGetConfig', lightConfig);
-    await expect(client.config.get()).resolves.toEqual(lightConfig);
+    await expect(client.config.get()).resolves.toStrictEqual(lightConfig);
     expect(reporter).toHaveBeenCalledTimes(3);
     expect(throwing).toHaveBeenCalledTimes(3);
     expect(next).toHaveBeenLastCalledWith(lightConfig);
@@ -209,9 +209,9 @@ describe('configuration', () => {
     const client = createClient();
     const listener = vi.fn();
     const stop = client.config.subscribe(listener);
-    const failed = expect(client.config.get()).rejects.toBeInstanceOf(ClientDisposedError);
+    const failed = client.config.get();
     client.dispose();
-    await failed;
+    await expect(failed).rejects.toBeInstanceOf(ClientDisposedError);
     emit({ detail: { type: 'VKWebAppUpdateConfig', data: darkConfig } });
     request.resolve(lightConfig);
     await request.promise;

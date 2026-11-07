@@ -64,13 +64,13 @@ describe('VK API calls and token refresh', () => {
     const rawTail = vk.send('VKWebAppCallAPIMethod', nextRaw);
 
     await vi.advanceTimersByTimeAsync(100);
-    await expect(rawTail).resolves.toEqual({ response: 'ok' });
+    await expect(rawTail).resolves.toStrictEqual({ response: 'ok' });
 
-    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppCallAPIMethod')).toEqual([
+    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppCallAPIMethod')).toStrictEqual([
       ['VKWebAppCallAPIMethod', firstRaw], ['VKWebAppCallAPIMethod', nextRaw],
     ]);
 
-    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppGetAuthToken')).toEqual([
+    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppGetAuthToken')).toStrictEqual([
       ['VKWebAppGetAuthToken', { app_id: 123, scope: '' }],
       ['VKWebAppGetAuthToken', { app_id: 321, scope: '' }],
     ]);
@@ -80,7 +80,7 @@ describe('VK API calls and token refresh', () => {
     await vi.advanceTimersByTimeAsync(1);
     await expect(queued).resolves.toBe('ok');
 
-    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppCallAPIMethod')).toEqual([
+    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppCallAPIMethod')).toStrictEqual([
       ['VKWebAppCallAPIMethod', firstRaw], ['VKWebAppCallAPIMethod', nextRaw],
       ['VKWebAppCallAPIMethod', {
         method: 'users.get', params: { user_ids: '1', access_token: 'new-context-token', v: '5.199' },
@@ -116,7 +116,7 @@ describe('VK API calls and token refresh', () => {
     onSend('VKWebAppCallAPIMethod', vi.fn().mockRejectedValue(error));
     await expect(vk.api.call('users.get')).rejects.toBe(error);
 
-    expect(sdk.send.mock.calls.map(([method]) => method)).toEqual([
+    expect(sdk.send.mock.calls.map(([method]) => method)).toStrictEqual([
       'VKWebAppGetLaunchParams', 'VKWebAppGetAuthToken', 'VKWebAppCallAPIMethod',
     ]);
   });
@@ -126,7 +126,7 @@ describe('VK API calls and token refresh', () => {
     onSend('VKWebAppGetAuthToken', vi.fn().mockRejectedValue(authError));
     await expect(vk.api.call('users.get')).rejects.toBe(authError);
 
-    expect(sdk.send.mock.calls.map(([method]) => method)).toEqual([
+    expect(sdk.send.mock.calls.map(([method]) => method)).toStrictEqual([
       'VKWebAppGetLaunchParams', 'VKWebAppGetAuthToken',
     ]);
   });
@@ -147,9 +147,9 @@ describe('VK API calls and token refresh', () => {
 
     onSend('VKWebAppCallAPIMethod', callApi);
     const params = { owner_id: 1, message: 'message' };
-    await expect(vk.api.call('wall.post', params, { scopes: ['wall'] })).resolves.toEqual({ post_id: 42 });
+    await expect(vk.api.call('wall.post', params, { scopes: ['wall'] })).resolves.toStrictEqual({ post_id: 42 });
 
-    expect(sdk.send.mock.calls).toEqual([
+    expect(sdk.send.mock.calls).toStrictEqual([
       ['VKWebAppGetLaunchParams', undefined],
       ['VKWebAppGetAuthToken', { app_id: 123, scope: 'wall' }],
       ['VKWebAppCallAPIMethod', {
@@ -212,7 +212,7 @@ describe('VK API calls and token refresh', () => {
     expect(error.initialError).toBe(initialError);
     expect(error.cause).toBe(refusal);
 
-    expect(sdk.send.mock.calls.map(([method]) => method)).toEqual([
+    expect(sdk.send.mock.calls.map(([method]) => method)).toStrictEqual([
       'VKWebAppGetLaunchParams', 'VKWebAppGetAuthToken', 'VKWebAppCallAPIMethod', 'VKWebAppGetAuthToken',
     ]);
   });
@@ -277,13 +277,13 @@ describe('VK API calls and token refresh', () => {
     expect(authorizations).toBe(2);
 
     refresh.resolve({ access_token: 'token-b', scope: '' });
-    await expect(Promise.all([first, second])).resolves.toEqual(['retried', 'retried']);
+    await expect(Promise.all([first, second])).resolves.toStrictEqual(['retried', 'retried']);
     thirdRequest.reject(initialError);
     await expect(third).resolves.toBe('retried');
     expect(authorizations).toBe(2);
     expect(attempts).toBe(6);
 
-    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppCallAPIMethod').slice(3)).toEqual([
+    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppCallAPIMethod').slice(3)).toStrictEqual([
       ['VKWebAppCallAPIMethod', {
         method: 'users.get', params: { user_ids: '1', access_token: 'token-b', v: '5.199' },
       }],
@@ -308,11 +308,10 @@ describe('VK API calls and token refresh', () => {
 
     onSend('VKWebAppCallAPIMethod', vi.fn().mockRejectedValue({ error_type: 'api_error', error_data: { error_code: 5 } }));
     const call = vk.api.call('users.get');
-    const rejected = expect(call).rejects.toBeInstanceOf(ClientDisposedError);
     await vi.advanceTimersByTimeAsync(0);
     expect(authorizations).toBe(2);
     vk.dispose();
-    await rejected;
+    await expect(call).rejects.toBeInstanceOf(ClientDisposedError);
     refresh.resolve({ access_token: 'token-b', scope: '' });
     await vi.advanceTimersByTimeAsync(0);
     expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppCallAPIMethod')).toHaveLength(1);

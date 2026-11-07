@@ -56,13 +56,13 @@ describe('API dispatch scheduler', () => {
       return thirdReply.promise;
     });
 
-    expect(starts).toEqual([['first', 0]]);
+    expect(starts).toStrictEqual([['first', 0]]);
     await vi.advanceTimersByTimeAsync(499);
-    expect(starts).toEqual([['first', 0]]);
+    expect(starts).toStrictEqual([['first', 0]]);
     await vi.advanceTimersByTimeAsync(1);
-    expect(starts).toEqual([['first', 0], ['second', 500]]);
+    expect(starts).toStrictEqual([['first', 0], ['second', 500]]);
     await vi.advanceTimersByTimeAsync(500);
-    expect(starts).toEqual([['first', 0], ['second', 500], ['third', 1000]]);
+    expect(starts).toStrictEqual([['first', 0], ['second', 500], ['third', 1000]]);
 
     thirdReply.resolve('third');
     await expect(third).resolves.toBe('third');
@@ -82,9 +82,9 @@ describe('API dispatch scheduler', () => {
       return Promise.resolve(index);
     }));
 
-    expect(starts).toEqual([0, 0, 0]);
+    expect(starts).toStrictEqual([0, 0, 0]);
     expect(vi.getTimerCount()).toBe(0);
-    await expect(Promise.all(requests)).resolves.toEqual([0, 1, 2]);
+    await expect(Promise.all(requests)).resolves.toStrictEqual([0, 1, 2]);
   });
 
   it('spaces overdue work from the actual resume time without a catch-up burst', async () => {
@@ -101,17 +101,17 @@ describe('API dispatch scheduler', () => {
 
     now = 5000;
     await vi.advanceTimersByTimeAsync(500);
-    expect(starts).toEqual([0, 5000]);
+    expect(starts).toStrictEqual([0, 5000]);
 
     now = 5499;
     await vi.advanceTimersByTimeAsync(499);
-    expect(starts).toEqual([0, 5000]);
+    expect(starts).toStrictEqual([0, 5000]);
     now = 5500;
     await vi.advanceTimersByTimeAsync(1);
-    expect(starts).toEqual([0, 5000, 5500]);
+    expect(starts).toStrictEqual([0, 5000, 5500]);
     now = 6000;
     await vi.advanceTimersByTimeAsync(500);
-    expect(starts).toEqual([0, 5000, 5500, 6000]);
+    expect(starts).toStrictEqual([0, 5000, 5500, 6000]);
     await Promise.all(requests);
   });
 
@@ -126,19 +126,19 @@ describe('API dispatch scheduler', () => {
       throw error;
     });
 
-    const skippedExpectation = expect(skipped).rejects.toBe(error);
-
     const next = scheduler.enqueue(() => {
       starts.push(performance.now());
 
       return Promise.resolve('next');
     });
 
-    await vi.advanceTimersByTimeAsync(500);
+    await Promise.all([
+      expect(skipped).rejects.toBe(error),
+      vi.advanceTimersByTimeAsync(500),
+    ]);
 
-    await skippedExpectation;
     expect(skippedDispatch).not.toHaveBeenCalled();
-    expect(starts).toEqual([500]);
+    expect(starts).toStrictEqual([500]);
     await expect(next).resolves.toBe('next');
   });
 
@@ -150,11 +150,10 @@ describe('API dispatch scheduler', () => {
       throw error;
     });
 
-    const failedExpectation = expect(failed).rejects.toBe(error);
     const dispatch = vi.fn(() => Promise.resolve(performance.now()));
     const next = scheduler.enqueue(dispatch);
 
-    await failedExpectation;
+    await expect(failed).rejects.toBe(error);
     await vi.advanceTimersByTimeAsync(499);
     expect(dispatch).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
@@ -169,12 +168,13 @@ describe('API dispatch scheduler', () => {
     const dispatch = vi.fn(() => Promise.resolve('queued'));
     const second = scheduler.enqueue(dispatch);
     const third = scheduler.enqueue(dispatch);
-    const secondExpectation = expect(second).rejects.toBeInstanceOf(ClientDisposedError);
-    const thirdExpectation = expect(third).rejects.toBeInstanceOf(ClientDisposedError);
-
     lifetime.abort();
 
-    await Promise.all([secondExpectation, thirdExpectation]);
+    await Promise.all([
+      expect(second).rejects.toBeInstanceOf(ClientDisposedError),
+      expect(third).rejects.toBeInstanceOf(ClientDisposedError),
+    ]);
+
     expect(vi.getTimerCount()).toBe(0);
     await vi.advanceTimersByTimeAsync(2000);
     expect(dispatch).not.toHaveBeenCalled();
@@ -222,17 +222,17 @@ describe('client API queue integration', () => {
       method: 'raw.third', params: { access_token: 'raw-token', v: '5.199' },
     });
 
-    await expect(client.send('VKWebAppStorageSet', { key: 'key', value: 'value' })).resolves.toEqual({ result: true });
+    await expect(client.send('VKWebAppStorageSet', { key: 'key', value: 'value' })).resolves.toStrictEqual({ result: true });
 
     expect(performance.now()).toBe(0);
-    expect(starts).toEqual([['raw.first', 0]]);
+    expect(starts).toStrictEqual([['raw.first', 0]]);
     expect(sdk.send).toHaveBeenCalledWith('VKWebAppStorageSet', { key: 'key', value: 'value' });
     await vi.advanceTimersByTimeAsync(100);
-    expect(starts).toEqual([['raw.first', 0], ['managed.second', 100]]);
+    expect(starts).toStrictEqual([['raw.first', 0], ['managed.second', 100]]);
     await vi.advanceTimersByTimeAsync(100);
-    expect(starts).toEqual([['raw.first', 0], ['managed.second', 100], ['raw.third', 200]]);
+    expect(starts).toStrictEqual([['raw.first', 0], ['managed.second', 100], ['raw.third', 200]]);
 
-    await expect(Promise.all([first, second, third])).resolves.toEqual([
+    await expect(Promise.all([first, second, third])).resolves.toStrictEqual([
       { response: 'raw.first' }, 'managed.second', { response: 'raw.third' },
     ]);
 

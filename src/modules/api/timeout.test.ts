@@ -46,14 +46,14 @@ describe('API request timeout and late SDK replies', () => {
     });
 
     await vi.advanceTimersByTimeAsync(99);
-    expect(starts).toEqual([['raw.first', 0]]);
+    expect(starts).toStrictEqual([['raw.first', 0]]);
     expect(settled).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
-    expect(starts).toEqual([['raw.first', 0], ['users.get', 100]]);
+    expect(starts).toStrictEqual([['raw.first', 0], ['users.get', 100]]);
     await vi.advanceTimersByTimeAsync(49);
     expect(settled).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
-    expect(await result).toBeInstanceOf(ApiTimeoutError);
+    await expect(result).resolves.toBeInstanceOf(ApiTimeoutError);
     expect(settled).toHaveBeenCalledOnce();
     sdkReply.resolve({ response: 'late' });
   });
@@ -241,7 +241,7 @@ describe('API request timeout and late SDK replies', () => {
     await vi.advanceTimersByTimeAsync(29);
     expect(settled).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
-    expect(await request).toBeInstanceOf(ApiTimeoutError);
+    await expect(request).resolves.toBeInstanceOf(ApiTimeoutError);
     sdkReply.resolve({ response: 'late' });
   });
 });

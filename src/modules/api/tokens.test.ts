@@ -22,11 +22,11 @@ describe('authorization and token cache', () => {
 
   it('authorizes lazily and shares the cached token between authorize and API calls', async () => {
     expect(sdk.send).not.toHaveBeenCalled();
-    await expect(vk.api.call('users.get', { user_ids: '1' })).resolves.toEqual({ ok: true });
+    await expect(vk.api.call('users.get', { user_ids: '1' })).resolves.toStrictEqual({ ok: true });
     await vk.api.call('users.get', { user_ids: '2' });
-    await expect(vk.api.authorize()).resolves.toEqual({ access_token: 'token-a', scope: '' });
+    await expect(vk.api.authorize()).resolves.toStrictEqual({ access_token: 'token-a', scope: '' });
 
-    expect(sdk.send.mock.calls).toEqual([
+    expect(sdk.send.mock.calls).toStrictEqual([
       ['VKWebAppGetLaunchParams', undefined],
       ['VKWebAppGetAuthToken', { app_id: 123, scope: '' }],
       ['VKWebAppCallAPIMethod', {
@@ -46,7 +46,7 @@ describe('authorization and token cache', () => {
     const call = vk.api.call('wall.get', {}, { scopes: ['wall', 'friends'] });
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(sdk.send.mock.calls).toEqual([
+    expect(sdk.send.mock.calls).toStrictEqual([
       ['VKWebAppGetLaunchParams', undefined],
       ['VKWebAppGetAuthToken', { app_id: 123, scope: 'friends,wall' }],
     ]);
@@ -54,10 +54,10 @@ describe('authorization and token cache', () => {
     const response = { access_token: 'token-a', scope: 'wall,friends', expires: 3600 };
     authorization.resolve(response);
     const authorized = await first;
-    expect(authorized).toEqual(response);
+    expect(authorized).toStrictEqual(response);
     expect(Object.isFrozen(authorized)).toBe(true);
     await expect(second).resolves.toBe(authorized);
-    await expect(call).resolves.toEqual({ ok: true });
+    await expect(call).resolves.toStrictEqual({ ok: true });
     expect(sdk.send).toHaveBeenCalledTimes(3);
   });
 
@@ -73,24 +73,24 @@ describe('authorization and token cache', () => {
     const first = vk.api.call('friends.get', {}, { scopes: ['friends'] });
     const second = vk.api.call('wall.get', {}, { scopes: ['wall'] });
     await vi.advanceTimersByTimeAsync(0);
-    expect(authorize.mock.calls).toEqual([[{ app_id: 123, scope: 'friends' }]]);
+    expect(authorize.mock.calls).toStrictEqual([[{ app_id: 123, scope: 'friends' }]]);
 
     firstDialog.resolve({ access_token: 'friends-token', scope: 'friends' });
-    await expect(first).resolves.toEqual({ ok: true });
+    await expect(first).resolves.toStrictEqual({ ok: true });
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(authorize.mock.calls).toEqual([
+    expect(authorize.mock.calls).toStrictEqual([
       [{ app_id: 123, scope: 'friends' }], [{ app_id: 123, scope: 'wall' }],
     ]);
 
-    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppCallAPIMethod')).toEqual([
+    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppCallAPIMethod')).toStrictEqual([
       ['VKWebAppCallAPIMethod', {
         method: 'friends.get', params: { access_token: 'friends-token', v: '5.199' },
       }],
     ]);
 
     secondDialog.resolve({ access_token: 'wall-token', scope: 'wall' });
-    await expect(second).resolves.toEqual({ ok: true });
+    await expect(second).resolves.toStrictEqual({ ok: true });
 
     expect(sdk.send).toHaveBeenLastCalledWith('VKWebAppCallAPIMethod', {
       method: 'wall.get', params: { access_token: 'wall-token', v: '5.199' },
@@ -133,18 +133,18 @@ describe('authorization and token cache', () => {
     const first = vk.api.authorize({ scopes: ['friends'] });
     const second = vk.api.call('wall.get', {}, { scopes: ['wall'] });
 
-    const rejected = Promise.all([
+    await vi.advanceTimersByTimeAsync(0);
+    dialog.reject(refusal);
+
+    await Promise.all([
       expect(first).rejects.toBe(refusal), expect(second).rejects.toBe(refusal),
     ]);
 
-    await vi.advanceTimersByTimeAsync(0);
-    dialog.reject(refusal);
-    await rejected;
     expect(sdk.send).toHaveBeenCalledTimes(2);
 
     reply('VKWebAppGetAuthToken', { access_token: 'allowed-token', scope: 'wall' });
 
-    await expect(vk.api.authorize({ scopes: ['wall'] })).resolves.toEqual({
+    await expect(vk.api.authorize({ scopes: ['wall'] })).resolves.toStrictEqual({
       access_token: 'allowed-token', scope: 'wall',
     });
 
@@ -194,7 +194,7 @@ describe('authorization and token cache', () => {
       name: 'BridgeResponseError', method: 'VKWebAppGetLaunchParams',
     });
 
-    expect(sdk.send.mock.calls).toEqual([['VKWebAppGetLaunchParams', undefined]]);
+    expect(sdk.send.mock.calls).toStrictEqual([['VKWebAppGetLaunchParams', undefined]]);
   });
 
   it.each([
@@ -207,7 +207,7 @@ describe('authorization and token cache', () => {
     reply('VKWebAppGetAuthToken', { access_token: 'new-context-token', scope: '' });
     await vk.api.call('users.get');
 
-    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppGetAuthToken')).toEqual([
+    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppGetAuthToken')).toStrictEqual([
       ['VKWebAppGetAuthToken', { app_id: 123, scope: '' }],
       ['VKWebAppGetAuthToken', { app_id: context.vk_app_id, scope: '' }],
     ]);
@@ -226,14 +226,14 @@ describe('authorization and token cache', () => {
     await vk.launch.get({ refresh: true });
     reply('VKWebAppGetAuthToken', { access_token: 'new-context-token', scope: '' });
     dialog.resolve({ access_token: 'old-context-token', scope: '' });
-    await expect(call).resolves.toEqual({ ok: true });
+    await expect(call).resolves.toStrictEqual({ ok: true });
 
-    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppGetAuthToken')).toEqual([
+    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppGetAuthToken')).toStrictEqual([
       ['VKWebAppGetAuthToken', { app_id: 123, scope: '' }],
       ['VKWebAppGetAuthToken', { app_id: 321, scope: '' }],
     ]);
 
-    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppCallAPIMethod')).toEqual([
+    expect(sdk.send.mock.calls.filter(([method]) => method === 'VKWebAppCallAPIMethod')).toStrictEqual([
       ['VKWebAppCallAPIMethod', {
         method: 'users.get', params: { access_token: 'new-context-token', v: '5.199' },
       }],
@@ -263,14 +263,14 @@ describe('authorization and token cache', () => {
     const authorization = vk.api.authorize();
     const call = vk.api.call('users.get');
 
-    const rejected = Promise.all([
+    await vi.advanceTimersByTimeAsync(0);
+    vk.dispose();
+
+    await Promise.all([
       expect(authorization).rejects.toBeInstanceOf(ClientDisposedError),
       expect(call).rejects.toBeInstanceOf(ClientDisposedError),
     ]);
 
-    await vi.advanceTimersByTimeAsync(0);
-    vk.dispose();
-    await rejected;
     dialog.resolve({ access_token: 'late-token', scope: '' });
     await vi.advanceTimersByTimeAsync(0);
     await expect(vk.api.authorize()).rejects.toBeInstanceOf(ClientDisposedError);
@@ -282,12 +282,11 @@ describe('authorization and token cache', () => {
     const launch = deferred<unknown>();
     reply('VKWebAppGetLaunchParams', launch.promise);
     const call = vk.api.authorize();
-    const rejected = expect(call).rejects.toBeInstanceOf(ClientDisposedError);
     vk.dispose();
-    await rejected;
+    await expect(call).rejects.toBeInstanceOf(ClientDisposedError);
     launch.resolve(launchParams);
     await vi.advanceTimersByTimeAsync(0);
-    expect(sdk.send.mock.calls).toEqual([['VKWebAppGetLaunchParams', undefined]]);
+    expect(sdk.send.mock.calls).toStrictEqual([['VKWebAppGetLaunchParams', undefined]]);
   });
 
   it('preserves a newer authorization when an old request fails and VK reused the token string', async () => {
@@ -307,7 +306,7 @@ describe('authorization and token cache', () => {
     expect(apiCalls).toBe(1);
 
     const newerAuthorization = await vk.api.authorize({ scopes: ['friends', 'wall'] });
-    expect(authorize.mock.calls).toEqual([['friends'], ['friends,wall']]);
+    expect(authorize.mock.calls).toStrictEqual([['friends'], ['friends,wall']]);
     oldRequest.reject({ error_type: 'api_error', error_data: { error_code: 5 } });
 
     await expect(oldCall).resolves.toBe('retried');

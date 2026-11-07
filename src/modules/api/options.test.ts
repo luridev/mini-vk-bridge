@@ -3,10 +3,10 @@ import { resolveApiOptions, validateMilliseconds } from './options.js';
 
 describe('API options', () => {
   it('uses documented defaults and allows explicit zero spacing', () => {
-    expect(resolveApiOptions()).toEqual({ version: '5.199', minIntervalMs: 500, timeoutMs: 30_000 });
+    expect(resolveApiOptions()).toStrictEqual({ version: '5.199', minIntervalMs: 500, timeoutMs: 30_000 });
 
     expect(resolveApiOptions({ version: '5.200', minIntervalMs: 0, timeoutMs: 15 }))
-      .toEqual({ version: '5.200', minIntervalMs: 0, timeoutMs: 15 });
+      .toStrictEqual({ version: '5.200', minIntervalMs: 0, timeoutMs: 15 });
   });
 
   it.each(['', '5', '5.', 'v5.199', ' 5.199', '5.199\n'])('rejects invalid API version %j', (version) => {

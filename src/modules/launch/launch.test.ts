@@ -14,13 +14,13 @@ function createClient(): MiniBridge {
   return client;
 }
 
-afterEach(() => {
-  for (const client of clients.splice(0)) {
-    client.dispose();
-  }
-});
-
 describe('launch parameters', () => {
+  afterEach(() => {
+    for (const client of clients.splice(0)) {
+      client.dispose();
+    }
+  });
+
   it('keeps the original query bytes and returns independent decoded views', () => {
     const query = '?custom=%2B&custom=second&vk_app_id=00123&space=a+b';
     vi.stubGlobal('window', { location: { search: query } });
@@ -29,7 +29,7 @@ describe('launch parameters', () => {
     first.set('custom', 'changed');
     vi.stubGlobal('window', { location: { search: '?different=query' } });
     expect(client.launch.rawQuery).toBe(query);
-    expect(client.launch.query().getAll('custom')).toEqual(['+', 'second']);
+    expect(client.launch.query().getAll('custom')).toStrictEqual(['+', 'second']);
     expect(client.launch.query().get('vk_app_id')).toBe('00123');
     expect(client.launch.query().get('space')).toBe('a b');
     expect(sdk.send).not.toHaveBeenCalled();
@@ -44,10 +44,10 @@ describe('launch parameters', () => {
     expect(sdk.send).toHaveBeenCalledExactlyOnceWith('VKWebAppGetLaunchParams', undefined);
     request.resolve(launchParams);
     const [initial, concurrent] = await Promise.all([first, second]);
-    expect(initial).toEqual(launchParams);
+    expect(initial).toStrictEqual(launchParams);
     expect(concurrent).toBe(initial);
-    expect(await client.launch.get()).toBe(initial);
-    expect(sdk.send).toHaveBeenCalledTimes(1);
+    await expect(client.launch.get()).resolves.toBe(initial);
+    expect(sdk.send).toHaveBeenCalledOnce();
   });
 
   it('refreshes a cached snapshot and lets ordinary reads join the refresh', async () => {
@@ -60,9 +60,9 @@ describe('launch parameters', () => {
     const concurrent = client.launch.get();
     const next = { ...launchParams, vk_user_id: 789 };
     request.resolve(next);
-    await expect(refresh).resolves.toEqual(next);
-    await expect(concurrent).resolves.toEqual(next);
-    await expect(client.launch.get()).resolves.toEqual(next);
+    await expect(refresh).resolves.toStrictEqual(next);
+    await expect(concurrent).resolves.toStrictEqual(next);
+    await expect(client.launch.get()).resolves.toStrictEqual(next);
     expect(sdk.send).toHaveBeenCalledTimes(2);
   });
 
@@ -71,11 +71,11 @@ describe('launch parameters', () => {
     const request = deferred<unknown>();
     onSend('VKWebAppGetLaunchParams', () => request.promise);
     const client = createClient();
-    const failed = expect(client.launch.get()).rejects.toBe(error);
+    const failed = client.launch.get();
     request.reject(error);
-    await failed;
+    await expect(failed).rejects.toBe(error);
     reply('VKWebAppGetLaunchParams', launchParams);
-    await expect(client.launch.get()).resolves.toEqual(launchParams);
+    await expect(client.launch.get()).resolves.toStrictEqual(launchParams);
     expect(sdk.send).toHaveBeenCalledTimes(2);
   });
 
@@ -85,10 +85,10 @@ describe('launch parameters', () => {
     const initial = await client.launch.get();
     const request = deferred<unknown>();
     onSend('VKWebAppGetLaunchParams', () => request.promise);
-    const failed = expect(client.launch.get({ refresh: true })).rejects.toBe('refresh failed');
+    const failed = client.launch.get({ refresh: true });
     request.reject('refresh failed');
-    await failed;
-    expect(await client.launch.get()).toBe(initial);
+    await expect(failed).rejects.toBe('refresh failed');
+    await expect(client.launch.get()).resolves.toBe(initial);
     expect(sdk.send).toHaveBeenCalledTimes(2);
   });
 
@@ -96,13 +96,13 @@ describe('launch parameters', () => {
     const request = deferred<unknown>();
     onSend('VKWebAppGetLaunchParams', () => request.promise);
     const client = createClient();
-    const failed = expect(client.launch.get()).rejects.toBeInstanceOf(ClientDisposedError);
+    const failed = client.launch.get();
     client.dispose();
-    await failed;
+    await expect(failed).rejects.toBeInstanceOf(ClientDisposedError);
     request.resolve(launchParams);
     await request.promise;
     await expect(client.launch.get()).rejects.toBeInstanceOf(ClientDisposedError);
     expect(() => client.launch.query()).toThrow(ClientDisposedError);
-    expect(sdk.send).toHaveBeenCalledTimes(1);
+    expect(sdk.send).toHaveBeenCalledOnce();
   });
 });

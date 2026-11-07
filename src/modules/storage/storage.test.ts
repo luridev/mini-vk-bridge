@@ -13,13 +13,13 @@ function createClient(): MiniBridge {
   return client;
 }
 
-afterEach(() => {
-  for (const client of clients.splice(0)) {
-    client.dispose();
-  }
-});
-
 describe('string storage', () => {
+  afterEach(() => {
+    for (const client of clients.splice(0)) {
+      client.dispose();
+    }
+  });
+
   it('reads one value with the exact requested key', async () => {
     reply('VKWebAppStorageGet', { keys: [{ key: 'score', value: '42' }] });
     const client = createClient();
@@ -36,7 +36,7 @@ describe('string storage', () => {
 
     const client = createClient();
 
-    await expect(client.storage.getMany(['score', 'empty', 'missing', 'score'])).resolves.toEqual({
+    await expect(client.storage.getMany(['score', 'empty', 'missing', 'score'])).resolves.toStrictEqual({
       score: '42', empty: '', missing: '',
     });
 
@@ -51,7 +51,7 @@ describe('string storage', () => {
   });
 
   it('does not send a command for an empty key list', async () => {
-    await expect(createClient().storage.getMany([])).resolves.toEqual({});
+    await expect(createClient().storage.getMany([])).resolves.toStrictEqual({});
     expect(sdk.send).not.toHaveBeenCalled();
   });
 
@@ -80,14 +80,16 @@ describe('string storage', () => {
     onSend('VKWebAppStorageSet', () => write.promise);
     const client = createClient();
 
-    const failed = Promise.all([
-      expect(client.storage.get('score')).rejects.toBe(error),
-      expect(client.storage.set('score', '42')).rejects.toBe(error),
-    ]);
+    const reading = client.storage.get('score');
+    const writing = client.storage.set('score', '42');
 
     read.reject(error);
     write.reject(error);
-    await failed;
+
+    await Promise.all([
+      expect(reading).rejects.toBe(error),
+      expect(writing).rejects.toBe(error),
+    ]);
   });
 
   it('lets an already sent read settle after disposal without sending more requests', async () => {
@@ -98,6 +100,6 @@ describe('string storage', () => {
     client.dispose();
     request.resolve({ keys: [{ key: 'score', value: '42' }] });
     await expect(result).resolves.toBe('42');
-    expect(sdk.send).toHaveBeenCalledTimes(1);
+    expect(sdk.send).toHaveBeenCalledOnce();
   });
 });

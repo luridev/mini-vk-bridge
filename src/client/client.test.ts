@@ -13,13 +13,13 @@ function createClient(): MiniBridge {
   return client;
 }
 
-afterEach(() => {
-  for (const client of clients.splice(0)) {
-    client.dispose();
-  }
-});
-
 describe('client lifecycle', () => {
+  afterEach(() => {
+    for (const client of clients.splice(0)) {
+      client.dispose();
+    }
+  });
+
   it('creates a client without sending SDK commands', () => {
     const client = createClient();
     expect(client.config.snapshot()).toBeUndefined();
@@ -54,7 +54,7 @@ describe('client lifecycle', () => {
     await expect(first).resolves.toBe(response);
     await expect(second).resolves.toBe(response);
     await expect(client.init()).resolves.toBe(response);
-    expect(sdk.send).toHaveBeenCalledTimes(1);
+    expect(sdk.send).toHaveBeenCalledOnce();
   });
 
   it('preserves initialization rejection and permits a later explicit retry', async () => {
@@ -64,11 +64,10 @@ describe('client lifecycle', () => {
     const client = createClient();
     const first = client.init();
     const second = client.init();
-    const failed = Promise.all([expect(first).rejects.toBe(error), expect(second).rejects.toBe(error)]);
     request.reject(error);
-    await failed;
+    await Promise.all([expect(first).rejects.toBe(error), expect(second).rejects.toBe(error)]);
     reply('VKWebAppInit', { result: true });
-    await expect(client.init()).resolves.toEqual({ result: true });
+    await expect(client.init()).resolves.toStrictEqual({ result: true });
     expect(sdk.send).toHaveBeenCalledTimes(2);
   });
 
@@ -80,7 +79,7 @@ describe('client lifecycle', () => {
       await expect(failure).rejects.toBeInstanceOf(BridgeResponseError);
       await expect(failure).rejects.toMatchObject({ method: 'VKWebAppInit', response, cause: response });
       reply('VKWebAppInit', { result: true });
-      await expect(client.init()).resolves.toEqual({ result: true });
+      await expect(client.init()).resolves.toStrictEqual({ result: true });
     },
   );
 
@@ -94,7 +93,7 @@ describe('client lifecycle', () => {
     first.dispose();
     expect(subscriberCount()).toBe(1);
     await expect(first.init()).rejects.toBeInstanceOf(ClientDisposedError);
-    await expect(second.init()).resolves.toEqual({ result: true });
+    await expect(second.init()).resolves.toStrictEqual({ result: true });
     expect(sdk.send).toHaveBeenCalledTimes(2);
   });
 
@@ -102,13 +101,13 @@ describe('client lifecycle', () => {
     const request = deferred<unknown>();
     onSend('VKWebAppInit', () => request.promise);
     const client = createClient();
-    const failed = expect(client.init()).rejects.toBeInstanceOf(ClientDisposedError);
+    const failed = client.init();
     client.dispose();
-    await failed;
+    await expect(failed).rejects.toBeInstanceOf(ClientDisposedError);
     request.resolve({ result: true });
     await request.promise;
     await expect(client.init()).rejects.toBeInstanceOf(ClientDisposedError);
-    expect(sdk.send).toHaveBeenCalledTimes(1);
+    expect(sdk.send).toHaveBeenCalledOnce();
     expect(subscriberCount()).toBe(0);
   });
 
