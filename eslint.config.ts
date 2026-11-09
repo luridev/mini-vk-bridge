@@ -17,7 +17,7 @@ export default createProtoConfig(
   },
   {
     name: 'mini-vk-bridge/tooling',
-    files: ['*.config.ts', 'config/**/*.ts', 'tests/**/*.ts', 'src/**/*.test.ts', 'src/**/*.support.ts'],
+    files: ['*.config.ts', 'config/**/*.ts', 'scripts/**/*.ts', 'tests/**/*.{ts,mjs}', 'src/**/*.test.ts', 'src/**/*.support.ts'],
     languageOptions: { globals: globals.node },
   },
   {
