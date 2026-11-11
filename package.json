@@ -63,6 +63,7 @@
     "@vitest/coverage-v8": "^5.1.0",
     "@vitest/eslint-plugin": "^1.6.28",
     "bumpp": "^12.3.0",
+    "changelogithub": "^15.0.5",
     "cross-spawn": "^7.0.6",
     "eslint": "^10.14.0",
     "globals": "^17.14.0",

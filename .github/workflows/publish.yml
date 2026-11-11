@@ -32,3 +32,27 @@ jobs:
           test "v$VERSION" = "$GITHUB_REF_NAME"
 
       - run: npm publish
+
+  release:
+    if: github.server_url == 'https://github.com' && github.repository == 'luridev/mini-vk-bridge'
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - run: npm ci
+
+      - name: Create or update GitHub Release
+        run: npm exec --no -- changelogithub --to "$GITHUB_REF_NAME"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
