@@ -1,11 +1,10 @@
 import { fileURLToPath } from 'node:url';
 import { getBrowserTargets } from '@protoapps/browser-targets';
 import { defineConfig } from 'vite';
-import { widelyAvailableOnDate } from './config/browserPolicy/config.js';
 
 export default defineConfig({
   build: {
-    target: getBrowserTargets({ widelyAvailableOnDate }),
+    target: getBrowserTargets({ widelyAvailableOnYear: 2025 }),
     sourcemap: true,
     lib: {
       entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
