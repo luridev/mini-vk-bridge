@@ -1,76 +1,27 @@
 import assert from 'node:assert/strict';
-import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
-import { basename, dirname, join, sep } from 'node:path';
+import { join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import spawn from 'cross-spawn';
-import type { SpawnSyncReturns } from 'node:child_process';
+import { createRunner, lintPackage, packPackage, withTemporaryDirectory } from '@protoapps/package-verifier';
 import type { PackageLock, PackageManifest } from './types.js';
 
 const root = realpathSync(fileURLToPath(new URL('../', import.meta.url)));
 const require = createRequire(import.meta.url);
 
-function run(command: string, args: Array<string>, cwd = root, capture = false): string {
-  const label = `${command} ${args.join(' ')}`;
-  const env = { ...process.env };
-  delete env.NODE_PATH;
-  delete env.NODE_OPTIONS;
-  process.stdout.write(`[package] ${label}\n`);
+const runner = createRunner({ cwd: root, output: 'inherit', timeout: 600_000 });
 
-  const result: SpawnSyncReturns<string | null> = spawn.sync(command, args, {
-    cwd,
-    env,
-    encoding: 'utf8',
-    windowsHide: true,
-    stdio: ['inherit', capture ? 'pipe' : 'inherit', 'inherit'],
-  });
-
-  if (result.error != null || result.status !== 0 || result.signal != null) {
-    if (result.stdout !== null && result.stdout !== '') {
-      process.stderr.write(result.stdout);
-    }
-
-    throw new Error(`${label} failed (exit ${String(result.status)}, signal ${String(result.signal)}).`, { cause: result.error });
-  }
-
-  return result.stdout ?? '';
-}
-
-const temporaryDirectory = realpathSync(tmpdir());
-const temporaryRoot = realpathSync(mkdtempSync(join(temporaryDirectory, 'protoapps-mini-vk-bridge-')));
-
-try {
-  assert.equal(dirname(temporaryRoot), temporaryDirectory);
+await withTemporaryDirectory(async (temporaryRoot) => {
   assert.ok(!temporaryRoot.startsWith(`${root}${sep}`), 'The consumer must be outside the repository.');
   process.stdout.write(`[package] Temporary root: ${temporaryRoot}\n`);
 
   const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as PackageManifest;
-  const packData: unknown = JSON.parse(run('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', temporaryRoot], root, true));
-
-  assert.ok(typeof packData === 'object' && packData !== null, 'npm pack must return an array or object.');
-
-  const packed: Array<unknown> = Array.isArray(packData) ? packData : Object.values(packData);
-
-  assert.equal(packed.length, 1, 'npm pack must produce one archive.');
-
-  const [tarball] = packed;
-
-  assert.ok(typeof tarball === 'object' && tarball !== null, 'npm pack must return package metadata.');
-  assert.ok('name' in tarball && typeof tarball.name === 'string', 'npm pack must return a package name.');
-  assert.ok('version' in tarball && typeof tarball.version === 'string', 'npm pack must return a version.');
-  assert.ok('filename' in tarball && typeof tarball.filename === 'string', 'npm pack must return a filename.');
-  assert.equal(tarball.name, manifest.name);
-  assert.equal(tarball.version, manifest.version);
-  assert.equal(basename(tarball.filename), tarball.filename);
-  process.stdout.write(`${JSON.stringify(tarball, null, 2)}\n`);
-
-  const archive = join(temporaryRoot, tarball.filename);
+  const { path: archive } = await packPackage({ cwd: root, destination: temporaryRoot, runner });
   const consumer = join(temporaryRoot, 'consumer');
 
   cpSync(join(root, 'tests/fixtures/packageConsumer'), consumer, { recursive: true });
   writeFileSync(join(consumer, 'package.json'), `${JSON.stringify({ private: true, type: 'module' }, null, 2)}\n`);
-  run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', archive], consumer);
+  runner.npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', archive], { cwd: consumer });
 
   const installedPackage = realpathSync(join(consumer, 'node_modules', manifest.name));
 
@@ -96,17 +47,17 @@ try {
   assert.ok(sdk.startsWith(`${consumer}${sep}`), 'The SDK must resolve from the consumer installation.');
   const lock = JSON.parse(readFileSync(join(consumer, 'package-lock.json'), 'utf8')) as PackageLock;
 
-  for (const name of Object.keys(manifest.devDependencies)) {
+  for (const name of [...Object.keys(manifest.devDependencies), 'cross-spawn', '@types/cross-spawn', 'publint']) {
     assert.ok(!Object.keys(lock.packages).some((path) => path.endsWith(`node_modules/${name}`)),
       `Unexpected runtime dependency: ${name}`);
   }
 
-  run('npm', ['ls', '--all'], consumer);
-  run(process.execPath, [join(consumer, 'runtime.mjs')], consumer);
+  runner.npm(['ls', '--all'], { cwd: consumer });
+  runner.node([join(consumer, 'runtime.mjs')], { cwd: consumer });
 
   const typescriptVersion = (JSON.parse(readFileSync(require.resolve('typescript/package.json'), 'utf8')) as PackageManifest).version;
 
-  run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--save-dev', '--include=dev', `typescript@${typescriptVersion}`], consumer);
+  runner.npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', '--save-dev', '--include=dev', `typescript@${typescriptVersion}`], { cwd: consumer });
 
   const contracts = readFileSync(join(root, 'tests/contracts.ts'), 'utf8');
 
@@ -143,10 +94,7 @@ createMiniBridge({}, {});
     include: ['*.ts'],
   }, null, 2)}\n`);
 
-  run(process.execPath, [join(consumer, 'node_modules/typescript/bin/tsc'), '--noEmit'], consumer);
-  run('npm', ['exec', '--offline', '--no', '--', 'publint', archive, '--strict']);
+  runner.node([join(consumer, 'node_modules/typescript/bin/tsc'), '--noEmit'], { cwd: consumer });
+  await lintPackage(archive);
   process.stdout.write('Package verified successfully.\n');
-} finally {
-  assert.equal(dirname(realpathSync(temporaryRoot)), temporaryDirectory);
-  rmSync(temporaryRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
-}
+}, { prefix: 'protoapps-mini-vk-bridge-' });
