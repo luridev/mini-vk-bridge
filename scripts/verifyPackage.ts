@@ -6,7 +6,7 @@ import { basename, dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import spawn from 'cross-spawn';
 import type { SpawnSyncReturns } from 'node:child_process';
-import type { NpmPackResult, PackageLock, PackageManifest } from './types.js';
+import type { PackageLock, PackageManifest } from './types.js';
 
 const root = realpathSync(fileURLToPath(new URL('../', import.meta.url)));
 const require = createRequire(import.meta.url);
@@ -46,11 +46,20 @@ try {
   process.stdout.write(`[package] Temporary root: ${temporaryRoot}\n`);
 
   const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as PackageManifest;
-  const packed = JSON.parse(run('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', temporaryRoot], root, true)) as Array<NpmPackResult>;
-  const [tarball] = packed;
+  const packData: unknown = JSON.parse(run('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', temporaryRoot], root, true));
+
+  assert.ok(typeof packData === 'object' && packData !== null, 'npm pack must return an array or object.');
+
+  const packed: Array<unknown> = Array.isArray(packData) ? packData : Object.values(packData);
 
   assert.equal(packed.length, 1, 'npm pack must produce one archive.');
-  assert.ok(tarball !== undefined);
+
+  const [tarball] = packed;
+
+  assert.ok(typeof tarball === 'object' && tarball !== null, 'npm pack must return package metadata.');
+  assert.ok('name' in tarball && typeof tarball.name === 'string', 'npm pack must return a package name.');
+  assert.ok('version' in tarball && typeof tarball.version === 'string', 'npm pack must return a version.');
+  assert.ok('filename' in tarball && typeof tarball.filename === 'string', 'npm pack must return a filename.');
   assert.equal(tarball.name, manifest.name);
   assert.equal(tarball.version, manifest.version);
   assert.equal(basename(tarball.filename), tarball.filename);
@@ -59,7 +68,7 @@ try {
   const archive = join(temporaryRoot, tarball.filename);
   const consumer = join(temporaryRoot, 'consumer');
 
-  cpSync(join(root, 'tests/fixtures/package-consumer'), consumer, { recursive: true });
+  cpSync(join(root, 'tests/fixtures/packageConsumer'), consumer, { recursive: true });
   writeFileSync(join(consumer, 'package.json'), `${JSON.stringify({ private: true, type: 'module' }, null, 2)}\n`);
   run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', archive], consumer);
 
