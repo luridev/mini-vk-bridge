@@ -1,11 +1,11 @@
 // Compile-only public API checks: npm run typecheck. This file must not be executed.
 import type {
-  AnyReceiveMethodName as SdkReceiveMethodName,
   ErrorData as SdkErrorData,
+  VKBridgeEvent as SdkEvent,
   ReceiveData as SdkReceiveData,
+  AnyReceiveMethodName as SdkReceiveMethodName,
   RequestIdProp as SdkRequestIdProp,
   RequestProps as SdkRequestProps,
-  VKBridgeEvent as SdkEvent,
   VKBridgeSend as SdkSend,
 } from '@vkontakte/vk-bridge';
 import type {

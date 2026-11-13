@@ -1,9 +1,3 @@
-export type NpmPackResult = {
-  name: string;
-  version: string;
-  filename: string;
-};
-
 export type PackageManifest = {
   name: string;
   version: string;
