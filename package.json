@@ -37,7 +37,7 @@
     "test": "npm run test:unit && npm run test:package",
     "test:coverage": "vitest run --coverage",
     "test:package": "npm run build && jiti scripts/verifyPackage.ts",
-    "test:unit": "npm run build && vitest run",
+    "test:unit": "vitest run",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.build.json --noEmit"
   },
   "files": [
